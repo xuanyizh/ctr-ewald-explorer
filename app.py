@@ -1,11 +1,22 @@
 """Run: python -m streamlit run app.py"""
 import io
 import json
+import sys
+import base64
+from pathlib import Path
 from dataclasses import asdict
 import numpy as np
 import streamlit as st
 from physics import Geometry, HC, preset, pixel_q, detector_image, rod_intersections, pixel_jacobian, project_direction
-from plots import real_space, reciprocal, detector, terraces
+from plots import real_space, reciprocal, detector, terraces, project_2d
+
+def export_button(label, data, filename, mime):
+    if sys.platform == 'emscripten':
+        payload=data.encode('utf-8') if isinstance(data,str) else data
+        uri='data:'+mime+';base64,'+base64.b64encode(payload).decode('ascii')
+        st.markdown(f'<a download="{filename}" href="{uri}" style="display:inline-block;padding:8px 14px;border:1px solid #16847d;border-radius:6px;margin:5px 0;color:#16847d;text-decoration:none">{label}</a>',unsafe_allow_html=True)
+    else:
+        st.download_button(label,data,filename,mime)
 
 st.set_page_config(page_title='CTR / Ewald Explorer',page_icon='🔬',layout='wide')
 st.markdown('''<style>.block-container{padding-top:1.4rem}h1{letter-spacing:-1px}
@@ -33,6 +44,12 @@ def align_target():
 
 with st.sidebar:
     st.title('Geometry controls')
+    webgl=True
+    if Path('browser_capabilities.json').exists():
+        webgl=json.loads(Path('browser_capabilities.json').read_text()).get('webgl',True)
+    display_mode=st.selectbox('Diagram mode',['3D (rotate)','2D projections (no WebGL)'],index=0 if webgl else 1)
+    if not webgl:
+        st.caption('This browser cannot render WebGL. The 2D projections show the same geometry. Choose 3D in a WebGL-enabled browser.')
     st.selectbox('Start with an example',['Oblique steps','Across steps','Along steps','Flat surface','Paper-like L=1.6'],key='preset_name')
     st.button('Load example',on_click=apply_preset,width='stretch')
     st.caption('The paper-like example uses its energy and l; other settings are illustrative, not fitted experimental values.')
@@ -85,11 +102,20 @@ st.caption(f'Selected pixel: u={us:.4f}, v={vs:.4f} mm → outgoing direction ({
 tab1,tab2,tab3,tab4=st.tabs(['Linked views','Peak access & axes','Understand the construction','Save / model notes'])
 with tab1:
     a,b=st.columns(2)
-    with a: st.plotly_chart(real_space(g,us,vs),width='stretch')
-    with b: st.plotly_chart(reciprocal(g,us,vs),width='stretch')
+    with a:
+        rf=real_space(g,us,vs)
+        if display_mode.startswith('2D'): rf=project_2d(rf,title='1 | Real space: lab X–Z projection',xlabel='Lab X (mm)',ylabel='Lab Z (mm)')
+        st.plotly_chart(rf,width='stretch')
+    with b:
+        ef=reciprocal(g,us,vs)
+        if display_mode.startswith('2D'): ef=project_2d(ef,title='2 | Reciprocal space: lab qX–qZ projection',xlabel='qX (Å⁻¹)',ylabel='qZ (Å⁻¹)')
+        st.plotly_chart(ef,width='stretch')
     a,b=st.columns(2)
     with a:
-        st.plotly_chart(reciprocal(g,us,vs,True),width='stretch')
+        zf=reciprocal(g,us,vs,True)
+        if display_mode.startswith('2D'): zf=project_2d(zf,title='3 | Reciprocal close-up: h–l projection',xlabel='h (r.l.u.)',ylabel='l (r.l.u.)',equal=False)
+        st.plotly_chart(zf,width='stretch')
+        if display_mode.startswith('2D'): st.caption('Projection only: overlap in h–l does not imply intersection in 3D; k must also match. Black markers are the actual 3D intersections.')
         st.caption('The close-up uses unequal axis scales so small miscut splitting is visible. Full Ewald view uses equal physical scales. Only the selected (h,k) rod family is shown.')
     with b:
         st.plotly_chart(detector(g,u,v,I,qcmap,us,vs,records,layer),width='stretch')
@@ -154,10 +180,10 @@ A selected q probes a Fourier component of the structure. It does **not** select
 with tab4:
     st.subheader('Save the geometry and coordinate maps')
     settings=json.dumps(asdict(g),indent=2)
-    st.download_button('Download geometry JSON',settings,'geometry.json','application/json')
+    export_button('Download geometry JSON',settings,'geometry.json','application/json')
     buf=io.BytesIO()
     np.savez_compressed(buf,u_mm=u,v_mm=v,relative_intensity=I,q_lab_Ainv=qmap,hkl=qcmap*g.a/(2*np.pi),geometry_json=np.array(settings))
-    st.download_button('Download image + hkl maps (NPZ)',buf.getvalue(),'detector_maps.npz','application/octet-stream')
+    export_button('Download image + hkl maps (NPZ)',buf.getvalue(),'detector_maps.npz','application/octet-stream')
     uploaded=st.file_uploader('Load a saved geometry JSON',type=['json'])
     if uploaded:
         try:

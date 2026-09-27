@@ -113,3 +113,44 @@ def terraces(g):
     f.add_trace(go.Scatter(x=x/10,y=-np.tan(np.deg2rad(g.miscut))*x+g.a/2 if g.miscut else z,mode='lines',name='Mean surface',line=dict(color='#9b75c5',dash='dash')))
     f.update_layout(title='Surface cross-section: +x goes downhill, step edges run along y',height=260,xaxis_title='Crystal x (nm)',yaxis_title='Height z (Å); vertical scale exaggerated',margin=dict(l=20,r=20,t=50,b=20),legend=dict(orientation='h'))
     return f
+
+
+def project_2d(fig, xindex=0, yindex=2, title='', xlabel='', ylabel='', equal=True):
+    """Orthographic projection for browsers without WebGL.
+    This is a projection of the same coordinates, not a reciprocal-space slice.
+    """
+    out=go.Figure()
+    for tr in fig.data:
+        if tr.type=='cone':
+            continue
+        if tr.type=='surface':
+            grids=[np.asarray(tr.x),np.asarray(tr.y),np.asarray(tr.z)]
+            X,Y=grids[xindex],grids[yindex]
+            xx=[];yy=[]
+            # Surface grid, shown as thin SVG lines; avoids any WebGL requirement.
+            stride=max(1,X.shape[0]//8)
+            for i in range(0,X.shape[0],stride):
+                xx.extend(X[i].tolist()+[None]);yy.extend(Y[i].tolist()+[None])
+            stride=max(1,X.shape[1]//8)
+            for i in range(0,X.shape[1],stride):
+                xx.extend(X[:,i].tolist()+[None]);yy.extend(Y[:,i].tolist()+[None])
+            col=tr.colorscale[0][1] if tr.colorscale else '#999999'
+            out.add_trace(go.Scatter(x=xx,y=yy,mode='lines',name=tr.name,line=dict(color=col,width=1),opacity=.45,showlegend=bool(tr.showlegend),hoverinfo='skip'))
+        elif tr.type=='scatter3d':
+            coords=[tr.x,tr.y,tr.z]
+            mode=tr.mode or 'lines'
+            params=dict(x=coords[xindex],y=coords[yindex],mode=mode,name=tr.name,showlegend=tr.showlegend)
+            if 'lines' in mode:
+                params['line']=dict(color=tr.line.color,width=min(tr.line.width or 2,3),dash=tr.line.dash)
+            if 'markers' in mode:
+                params['marker']=dict(color=tr.marker.color,size=max(5,tr.marker.size or 5))
+            if 'text' in mode:
+                params.update(text=tr.text,textposition=tr.textposition)
+            out.add_trace(go.Scatter(**params))
+    out.update_layout(title=title,height=480,xaxis_title=xlabel,yaxis_title=ylabel,margin=dict(l=45,r=15,t=60,b=45),legend=dict(orientation='h',font=dict(size=10)),uirevision=title)
+    if equal:out.update_yaxes(scaleanchor='x',scaleratio=1)
+    # Preserve the close-up's finite bounds, when supplied.
+    for name,index in [('xaxis',xindex),('yaxis',yindex)]:
+        source=fig.layout.scene[['xaxis','yaxis','zaxis'][index]]
+        if source.range:out.layout[name].range=source.range
+    return out
