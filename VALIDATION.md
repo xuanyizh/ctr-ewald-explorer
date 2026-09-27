@@ -33,12 +33,16 @@ The Plotly figures and self-contained HTML snapshot serialized successfully.
 
 ## Limits of verification
 
-The interactive browser rendering was not screenshot-tested: a Chromium
-runtime could not be downloaded in the execution environment. Streamlit's
-AppTest executes the Python interface and widgets but does not validate WebGL
-rendering, mouse gestures or browser layout. The included PNG is a separate
-scientific preview, not a screenshot of the application. No Windows or macOS
-machine was available to test the launch scripts.
+The original local package was checked with AppTest and a scientific preview.
+The GitHub Pages deployment was subsequently opened in a cloud browser and
+ran the Python calculation with the default l=0.5 geometry. The test browser
+has no WebGL support; a 2D projection mode was added and checked with AppTest.
+The live 2D plots were visually inspected, and changing the selected detector
+column updated its outgoing direction and hkl values. Export links generate
+inline JSON/NPZ payloads, but download completion could not be confirmed in
+the cloud browser (the download event timed out).
+3D rotation has not been verified in a WebGL-capable browser. No Windows or
+macOS machine was available to test the launch scripts.
 
 This validates the implemented idealized geometry, not experimental calibration
 or quantitative scattering intensities. The code has not been validated against
