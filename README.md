@@ -1,6 +1,8 @@
 # CTR / Ewald Explorer
 
-A local, interactive Python simulator for understanding how a real flat detector
+[Open the live simulator](https://xuanyizh.github.io/ctr-ewald-explorer/) — no Python installation needed.
+
+An interactive Python simulator for understanding how a real flat detector
 samples crystal truncation rods through the elastic-scattering Ewald sphere.
 
 ## GitHub Pages deployment
@@ -15,6 +17,10 @@ before closing the tab.
 Publish the root of `main` using GitHub Pages. The deployed files are
 `index.html`, `app.py`, `physics.py`, and `plots.py`. The desktop Python source
 uses the same geometry engine. Browser runtime: @stlite/browser 1.9.2.
+
+Browsers without WebGL automatically use 2D projections. The sidebar
+**Diagram mode** control switches between 3D and 2D. Projections can overlap
+points with different omitted coordinates; use the access table for exact capture.
 
 ## Start on Windows, macOS or Linux
 
